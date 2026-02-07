@@ -1,0 +1,6 @@
+requests
+python-dotenv
+huggingface-hub
+Pillow
+certifi
+urllib3<2.0.0
