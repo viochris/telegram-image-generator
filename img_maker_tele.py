@@ -156,7 +156,13 @@ def generate_img(prompt: str):
         elif "connection" in error_str or "max retries" in error_str:
              print("❌ NETWORK ERROR: Failed to connect to Hugging Face API.")
 
-        # CASE 5: Unknown Error
+        # CASE 5: API Key Quota / Credit Depleted
+        elif "credit balance" in error_str or "depleted" in error_str or "429" in error_str:
+            warning_msg = "💳 QUOTA EXCEEDED: Your Hugging Face credit balance is depleted. Purchase credits or upgrade to Pro."
+            print(warning_msg)
+            return warning_msg
+
+        # CASE 6: Unknown Error
         else:
             print("🔥 GENERATION FAILED: An unknown error occurred during image generation.")
             print("   (Error details hidden for security)")
@@ -170,6 +176,10 @@ def to_telegram(sender_name, chat_id, caption, img):
     """
     Sends the generated image and caption to the specified Telegram Chat.
     """
+
+    if not TELEGRAM_TOKEN:
+        print("❌ Error: Telegram credentials are missing.")
+        return
     
     # 1. CONSTRUCT API URL
     url_send_photo = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
@@ -225,7 +235,61 @@ def to_telegram(sender_name, chat_id, caption, img):
             print(f"❌ SENDING FAILED: An unknown error occurred while sending to {sender_name}.")
             print("   (Error details hidden for security)")
 
+# ==========================================
+# 5B. TELEGRAM SEND TEXT FUNCTION
+# ==========================================
+def send_information(sender_name, chat_id, information):
+    """
+    Sends a text message (information or warning) to a specific Telegram user.
+    """
+    
+    # 1. Credential Check
+    if not TELEGRAM_TOKEN:
+        print("❌ Error: Telegram credentials are missing.")
+        return
 
+    # 2. Construct URL
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+
+    # 3. Prepare Data
+    data = {
+        "chat_id": chat_id,
+        "text": information,
+        "parse_mode": "Markdown"
+    }
+
+    # 4. Log Action
+    print(f"🚀 SENDING INFO TO {sender_name} (ID: {chat_id})...")
+
+    try:
+        # 5. Send POST request to Telegram API
+        response = requests.post(url, json=data)
+        
+        # 6. Check HTTP Status Code (200 = OK)
+        if response.status_code == 200:
+            print("Status: ✅ Message delivered!")
+        else:
+            # Log the specific error from Telegram for debugging
+            print(f"Status: ❌ Telegram Refused (Code: {response.status_code})")
+            print(f"Details: {response.text}")
+            
+    except Exception as e:
+        # 7. Safe Error Handling
+        # Parse the error string to determine the cause
+        error_str = str(e).lower()
+
+        if "connection" in error_str or "dns" in error_str:
+            print("Status: ❌ Network Error (Connection/DNS).")
+        elif "timeout" in error_str:
+            print("Status: ⏳ Timeout Error (No Response).")
+        elif "ssl" in error_str:
+            print("Status: 🔒 SSL Error (Certificate Failed).")
+        else:
+            print("Status: ❌ Send Failed (Unknown Error).")
+    
+# ==========================================
+# 6. MAIN BOT LOOP (BACKGROUND PROCESS)
+# ==========================================
 def main():
     print("🤖 Bot is starting... Monitoring incoming messages...")
     
@@ -258,14 +322,17 @@ def main():
                         print(f"📩 RECEIVED MESSAGE from [{sender_name}]: '{prompt}'")
 
                         # Generate image based on the user's prompt
-                        img_bytes = generate_img(prompt)
+                        result = generate_img(prompt)
                         
                         # If image generation was successful, send it back to Telegram
-                        if img_bytes is not None:
-                            to_telegram(sender_name, chat_id, prompt, img_bytes)
-                            print("✅ Image sent successfully.")
-                        else:
+                        if result is None:
                             print("⚠️ Image generation failed (returned None).")
+                            send_information(sender_name, chat_id, "❌ Sorry, failed to generate image due to server error.")
+                        elif isinstance(result, str):
+                            send_information(sender_name, chat_id, result)
+                        else:
+                            to_telegram(sender_name, chat_id, prompt, result)
+                            print("✅ Image sent successfully.")           
 
             else:
                 # No new messages found in this poll cycle
@@ -304,5 +371,8 @@ def main():
             print("🔄 Restarting polling in 5 seconds...")
             time.sleep(5)
 
+# ==========================================
+# 7. EXECUTION
+# ==========================================
 if __name__ == "__main__":
     main()
