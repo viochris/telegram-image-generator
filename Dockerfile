@@ -1,6 +1,6 @@
 # WE USE THE FULL IMAGE (Not Slim)
 # Larger size, but includes complete internet drivers & DNS configuration out-of-the-box.
-FROM python:3.9
+FROM python:3.11
 
 # Set working directory
 WORKDIR /code
