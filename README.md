@@ -57,7 +57,7 @@ HF_TOKEN=your_huggingface_read_token
 
 1. **Clone the Repository**
 ```bash
-git clone [https://github.com/viochris/telegram-ai-bot.git](https://github.com/viochris/telegram-ai-bot.git)
+git clone https://github.com/viochris/telegram-ai-bot.git
 cd telegram-ai-bot
 ```
 
